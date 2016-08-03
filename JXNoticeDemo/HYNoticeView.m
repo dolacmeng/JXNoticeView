@@ -111,12 +111,15 @@ static NSMutableArray *noticeArray;
 }
 
 #pragma mark - public method
--(instancetype)initWithFrame:(CGRect)frame text:(NSString*)text position:(HYNoticeViewPosition)position{
+-(instancetype)initWithFrame:(CGRect)frame text:(NSString*)text position:(HYNoticeViewPosition)position closeBlock:(void(^)())closeBlock noticeBlock:(void(^)())noticeBlock{
     if (self = [super initWithFrame:frame]) {
         self.backgroundColor = [UIColor clearColor];
         
         _position = position;
-
+        _closeClick = closeBlock;
+        _noticeClick = noticeBlock;
+        
+        //文字
         UILabel *label = [[UILabel alloc] init];
         label.text = text;
         label.numberOfLines = 0;
@@ -124,44 +127,48 @@ static NSMutableArray *noticeArray;
         label.font = [UIFont systemFontOfSize:15];
         label.textAlignment = NSTextAlignmentCenter;
         [self addSubview:label];
-
-        UIImageView *closeImage = [[UIImageView alloc] init];
-        closeImage.image = [UIImage imageNamed:@"chachawhite"];
-        [self addSubview:closeImage];
         
-        UIButton *closeButton = [[UIButton alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, frame.size.height)];
+        //
+        UIButton *viewButton = [[UIButton alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, frame.size.height)];
+        [viewButton addTarget:self action:@selector(clickNotice:) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:viewButton];
+        _viewButton  = viewButton;
+        
+        //关闭按钮
+        UIButton *closeButton = [[UIButton alloc] init];
+        [closeButton setImage:[UIImage imageNamed:@"chacha"] forState:UIControlStateNormal];
         [closeButton addTarget:self action:@selector(clickClose:) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:closeButton];
-        _closeButton  = closeButton;
+        _closeButton = closeButton;
         
         switch (position) {
             case HYNoticeViewPositionTop:
             case HYNoticeViewPositionTopLeft:
             case HYNoticeViewPositionTopRight:
                 label.frame = CGRectMake(0, 4, frame.size.width, frame.size.height);
-                closeImage.frame = CGRectMake(frame.size.width-16, 5, 14, 14);
+                closeButton.frame = CGRectMake(frame.size.width-16, 5, 14, 14);
                 break;
             case HYNoticeViewPositionLeft:
                 label.frame = CGRectMake(2, 0, frame.size.width, frame.size.height);
-                closeImage.frame = CGRectMake(frame.size.width-16, 3, 14, 14);
+                closeButton.frame = CGRectMake(frame.size.width-16, 3, 14, 14);
                 break;
             case HYNoticeViewPositionBottom:
             case HYNoticeViewPositionBottomRight:
                 label.frame = CGRectMake(0, -2, frame.size.width, frame.size.height);
-                closeImage.frame = CGRectMake(frame.size.width-16, 3, 14, 14);
+                closeButton.frame = CGRectMake(frame.size.width-16, 3, 14, 14);
                 break;
             case HYNoticeViewPositionRight:
                 label.frame = CGRectMake(-2, 0, frame.size.width, frame.size.height);
-                closeImage.frame = CGRectMake(frame.size.width-20, 3, 14, 14);
+                closeButton.frame = CGRectMake(frame.size.width-20, 3, 14, 14);
                 break;
-
+                
             default:
                 break;
         }
         
         NSRange rang = [text rangeOfString:@"查看方法"];
         if (rang.location!=NSNotFound) {
-            closeImage.hidden = YES;
+            closeButton.hidden = YES;
             NSMutableAttributedString *attString = [[NSMutableAttributedString alloc] initWithString:text];
             [attString addAttribute:NSUnderlineStyleAttributeName
                               value:[NSNumber numberWithInt:NSUnderlineStyleSingle]
@@ -171,13 +178,22 @@ static NSMutableArray *noticeArray;
                               range:rang];
             label.attributedText = attString;
         }
-
+        
     }
     return self;
 }
 
--(void)showType:(HYNoticeType)type inView:(UIView*)view{
+-(instancetype)initWithFrame:(CGRect)frame text:(NSString*)text position:(HYNoticeViewPosition)position{
+    return [self initWithFrame:frame text:text position:position closeBlock:nil noticeBlock:nil];
+}
+
+-(void)showType:(HYNoticeType)type inView:(UIView*)view {
     [view addSubview:self];
+}
+
+-(void)showType:(HYNoticeType)type inView:(UIView*)view closeBlock:(void(^)())closeBlock noticeBlock:(void(^)())noticeBlock{
+    _closeClick = closeBlock;
+    _noticeClick = noticeBlock;
 }
 
 
@@ -206,15 +222,22 @@ static NSMutableArray *noticeArray;
 }
 
 -(void)clickClose:(UIButton*)button{
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setBool:YES forKey:[NSString stringWithFormat:@"HideTip%zd",_type]];
     [self removeFromSuperview];
+    if (_closeClick) {
+        self.closeClick();
+    }
+}
+
+-(void)clickNotice:(UIButton*)button{
+    if (_noticeClick) {
+        self.noticeClick();
+    }
 }
 
 +(void)hideNoticeWithType:(NSInteger)type{
     for (HYNoticeView *notice in noticeArray) {
         if (notice.tag == type) {
-            [notice clickClose:notice.closeButton];
+            [notice removeFromSuperview];
         }
     }
 }
